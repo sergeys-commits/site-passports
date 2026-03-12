@@ -1,5 +1,13 @@
 <x-app-layout>
-    <x-slot name="header"><h2 class="font-semibold text-xl">Sites</h2></x-slot>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl">Sites</h2>
+        <div class="flex gap-2">
+            <a href="{{ route('deployments.onboard_prod.new') }}" style="padding:8px 12px;background:#111;color:#fff;border-radius:8px;text-decoration:none;">+ Onboard Prod</a>
+            <a href="{{ route('deployments.stage_provision.new') }}" style="padding:8px 12px;background:#0f172a;color:#fff;border-radius:8px;text-decoration:none;">+ Create Stage</a>
+        </div>
+
+
+    </x-slot>
     <div class="p-6 space-y-6">
         @if(session('ok')) <div class="p-3 bg-green-100 rounded">{{ session('ok') }}</div> @endif
 
