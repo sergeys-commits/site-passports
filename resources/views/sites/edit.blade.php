@@ -37,8 +37,8 @@
 <div><textarea name="notes" class="w-full border rounded p-2">{{ old('notes', $site->notes) }}</textarea></div>
 
 <div class="flex gap-2">
-<button class="px-4 py-2 bg-black text-white rounded">Save</button>
-<a href="{{ route('sites.show', $site->id) }}" class="px-4 py-2 border rounded">Cancel</a>
+<button style="padding:10px 16px;background:#0f172a;color:#fff;border:1px solid #0f172a;border-radius:8px;cursor:pointer;">Save</button>
+<a href="{{ route('sites.show', $site->id) }}" style="padding:10px 16px;background:#fff;color:#111;border:1px solid #334155;border-radius:8px;text-decoration:none;">Cancel</a>
 </div>
 </form>
 </div>

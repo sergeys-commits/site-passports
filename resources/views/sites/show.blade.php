@@ -2,7 +2,7 @@
 <x-slot name="header">
 <div class="flex items-center justify-between">
 <h2 class="font-semibold text-xl">{{ $site->name }}</h2>
-<a href="{{ route('sites.edit', $site->id) }}" class="px-3 py-2 bg-black text-white rounded text-sm">Edit</a>
+<a href="{{ route('sites.edit', $site->id) }}" style="display:inline-block;padding:8px 12px;background:#111;color:#fff;border:1px solid #111;border-radius:8px;font-size:14px;text-decoration:none;">Edit</a>
 </div>
 </x-slot>
 
