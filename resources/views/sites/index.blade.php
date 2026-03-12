@@ -23,7 +23,9 @@
                     <option value="archived">archived</option>
                 </select>
             </div>
-            <div><textarea name="notes" placeholder="Notes" class="w-full border rounded p-2"></textarea></div>
+            <div><input type="date" name="launch_date" class="w-full border rounded p-2" placeholder="Launch date"></div>
+ <div><input type="date" name="transfer_date" class="w-full border rounded p-2" placeholder="Transfer date"></div>
+ <div><textarea name="notes" placeholder="Notes" class="w-full border rounded p-2"></textarea></div>
             <button class="px-4 py-2 bg-black text-white rounded">Create site</button>
         </form>
 

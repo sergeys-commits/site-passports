@@ -6,6 +6,9 @@
             <div><b>Stage:</b> {{ $site->stage_domain }}</div>
             <div><b>Status:</b> {{ $site->status }}</div>
             <div><b>Theme:</b> {{ $site->theme_name }} {{ $site->theme_version }}</div>
+ <div><b>Launch date:</b> {{ optional($site->launch_date)->format('Y-m-d') }}</div>
+ <div><b>Transfer date:</b> {{ optional($site->transfer_date)->format('Y-m-d') }}</div>
+ <div><b>Notes:</b> {{ $site->notes }}</div>
         </div>
 
         <div class="p-4 border rounded">
