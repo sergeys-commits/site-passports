@@ -10,7 +10,7 @@ class DeploymentRun extends Model
 {
 protected $fillable = [
 'site_id','action_type','mode','status','requested_by',
-'confirm_phrase_used','started_at','finished_at','meta_json'
+'confirm_phrase_used','started_at','finished_at','meta_json','lock_key'
 ];
 
 protected $casts = [

@@ -5,11 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Site;
 use App\Models\SiteEvent;
 use App\Models\DeploymentRun;
-use App\Models\DeploymentLog;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Process;
-
+use App\Http\Requests\Deployments\StageProvisionRunRequest;
+use App\Services\Deployments\StageProvisionService;
 
 class DeploymentConsoleController extends Controller
 {
@@ -50,76 +48,16 @@ SiteEvent::create([
 return redirect()->route('sites.show', $site->id)->with('ok', 'Prod site onboarded');
 }
 
-    public function stageProvisionStore(Request $request)
-    {
-        $data = $request->validate([
-            'name' => 'required|string|max:190',
-            'stage_domain' => 'required|string|max:190',
-            'mode' => 'required|in:dry_run,live',
-            'confirm_phrase' => 'nullable|string|max:100',
-        ]);
+public function stageProvisionStore(StageProvisionRunRequest $request, StageProvisionService $service)
+{
+$run = $service->execute($request->validated(), $request->user());
 
-// Live пока защищён
-        if ($data['mode'] === 'live') {
-            if (($data['confirm_phrase'] ?? null) !== 'CONFIRM STAGE LIVE') {
-                return back()->withErrors(['confirm_phrase' => 'Нужна точная фраза CONFIRM STAGE LIVE'])->withInput();
-            }
-            return back()->withErrors(['mode' => 'Live пока отключен на этом шаге'])->withInput();
-        }
+if ($run->mode === 'live' && $run->status === 'success' && $run->site_id) {
+return redirect()->route('sites.show', $run->site_id)->with('ok', 'Stage live provision completed');
+}
 
-        $run = DeploymentRun::create([
-            'site_id' => null,
-            'action_type' => 'stage_provision',
-            'mode' => 'dry_run',
-            'status' => 'running',
-            'requested_by' => auth()->id(),
-            'started_at' => now(),
-            'meta_json' => [
-                'name' => $data['name'],
-                'stage_domain' => $data['stage_domain'],
-            ],
-        ]);
-
-        $line = 1;
-        $log = function (string $stream, string $msg) use ($run, &$line) {
-            DeploymentLog::create([
-                'run_id' => $run->id,
-                'stream' => $stream,
-                'line_no' => $line++,
-                'message' => $msg,
-            ]);
-        };
-
-        $log('system', 'Deployment Console started');
-        $log('stdout', 'Action: stage_provision');
-        $log('stdout', 'Mode: dry_run');
-        $log('stdout', 'Target stage domain: '.$data['stage_domain']);
-
-// TODO: замени путь на твой реальный dry-run entrypoint
-        $cmd = [
-            'bash',
-            '-lc',
-            'echo "[dry-run] stage provision start"; echo "name='.$data['name'].'"; echo "stage_domain='.$data['stage_domain'].'"; echo "[dry-run] done"'
-        ];
-
-        $result = Process::timeout(120)->run($cmd);
-
-        foreach (preg_split("/\\r\\n|\\n|\\r/", trim($result->output())) as $row) {
-            if ($row !== '') $log('stdout', $row);
-        }
-        foreach (preg_split("/\\r\\n|\\n|\\r/", trim($result->errorOutput())) as $row) {
-            if ($row !== '') $log('stderr', $row);
-        }
-
-        $run->update([
-            'status' => $result->successful() ? 'success' : 'failed',
-            'finished_at' => now(),
-        ]);
-
-        return redirect()->route('deployments.runs.show', $run->id)
-            ->with('ok', $result->successful() ? 'Dry-run completed' : 'Dry-run failed');
-    }
-
+return redirect()->route('deployments.runs.show', $run->id)->with('ok', 'Run finished: '.$run->status);
+}
 
 public function runShow(DeploymentRun $run)
 {
