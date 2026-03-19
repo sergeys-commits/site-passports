@@ -19,6 +19,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'role',
         'name',
         'email',
         'password',
@@ -46,4 +47,15 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function siteGroups() {
+        return $this->belongsToMany(\App\Models\SiteGroup::class, 'user_site_groups', 'user_id', 'group_id');
+    }
+
+    public function canAccessSite(\App\Models\Site $site): bool {
+        if (in_array($this->role, ['owner','dev'], true)) return true;
+        if (!$site->group_id) return false;
+        return $this->siteGroups()->where('site_groups.id', $site->group_id)->exists();
+    }
+
 }
