@@ -48,7 +48,9 @@ $this->guard->acquireOrFail($scopeKey, (int)$run->id, (int)$user->id, (int)confi
 }
 
 try {
-$script = config('app.stage_provision_dry_run_script') ?: env('STAGE_PROVISION_DRY_RUN_SCRIPT');
+$script = $data['mode'] === 'live'
+            ? (env('STAGE_PROVISION_LIVE_SCRIPT') ?: '')
+            : (config('app.stage_provision_dry_run_script') ?: env('STAGE_PROVISION_DRY_RUN_SCRIPT'));
 
 if (!$script || !is_file($script) || !is_executable($script)) {
 $log('stderr', 'Script missing or not executable: '.$script);
@@ -88,12 +90,19 @@ return $run->fresh();
 }
 
 if ($result->successful()) {
-DB::transaction(function () use ($data, $run, $user): void {
-$site = Site::updateOrCreate(
-['stage_domain' => $data['stage_domain']],
-['name' => $data['name'], 'domain' => $data['domain'] ?? $data['name'], 'status' => 'stage']
-);
-
+DB::transaction(function () use ($data, $run, $user, $result): void {
+$lines = preg_split('/\r\n|\n|\r/', trim($result->output()));
+                $scriptResult = json_decode(end($lines), true) ?? [];
+                $site = Site::updateOrCreate(
+                ['stage_domain' => $data['stage_domain']],
+                [
+                    'name'              => $data['name'],
+                    'domain'            => $data['domain'] ?? $data['name'],
+                    'status'            => 'stage',
+                    'stage_admin_url'   => 'https://' . $data['stage_domain'] . '/wp-admin',
+                    'wp_admin_password' => $scriptResult['admin_password'] ?? null,
+                ]
+            );
 $run->site_id = $site->id;
 $run->status = 'success';
 $run->finished_at = now();

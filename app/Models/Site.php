@@ -6,8 +6,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Site extends Model {
     protected $fillable = [
-        'name','domain','stage_domain','group_id','theme_name','theme_version',
-        'theme_changed_at','php_version','wp_version','status','launch_date','transfer_date','notes'
+        'name','domain','stage_domain','group_id','admin_url','stage_admin_url','wp_admin_password',
+        'theme_name','theme_version','theme_changed_at','php_version','wp_version',
+        'status','launch_date','transfer_date','notes'
     ];
     protected $casts = ['theme_changed_at' => 'datetime','launch_date' => 'date','transfer_date' => 'date'];
     public function group(): BelongsTo { return $this->belongsTo(SiteGroup::class, 'group_id'); }
