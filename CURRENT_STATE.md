@@ -41,6 +41,37 @@ _ничего_
 ---
 
 ## Не начато
+## Theme Update — концепция (готово к реализации)
+
+### Флоу
+1. Разработчик пушит изменения → создаёт git tag (v1.2.3)
+2. В платформе: выбирает группу → список тегов из GitHub API
+3. Выбирает тег (или latest из main по умолчанию)
+4. Выбирает canary сайты (чекбоксы) → запускает
+5. Проверяет → выбирает остальные → запускает
+
+### Bash скрипт
+- cd wp-content/themes/{theme_name}
+- git fetch --tags
+- git checkout {tag} или git pull origin main (latest)
+- chown -R www-root:www-root
+
+### БД изменения
+- site_groups: + theme_repo, + theme_name, + direction, + site_type
+- sites: + theme_version (текущий задеплоенный тег/commit)
+- deployment_runs: type=theme_update
+
+### .env
+- GITHUB_TOKEN — для GitHub API (список тегов)
+
+### Версионирование
+- По умолчанию: latest из main
+- Опционально: конкретный git tag
+- После деплоя: sites.theme_version = тег или commit hash
+
+### Pending
+- Написать флоу для разработчиков (когда и как создавать теги)
+- Заполнить site_groups в БД и привязать сайты
 
 - Theme update (массовое обновление по тегу)
 - Паспорт — ручное создание сайта
