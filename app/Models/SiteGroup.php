@@ -1,9 +1,16 @@
 <?php
+
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class SiteGroup extends Model {
-    protected $fillable = ['name'];
-    public function sites(): HasMany { return $this->hasMany(Site::class, 'group_id'); }
+class SiteGroup extends Model
+{
+    protected $fillable = ['name', 'theme_name'];
+
+    public function sites(): HasMany
+    {
+        return $this->hasMany(Site::class, 'group_id');
+    }
 }

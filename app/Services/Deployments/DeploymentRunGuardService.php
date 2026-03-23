@@ -23,6 +23,15 @@ class DeploymentRunGuardService
         ]));
     }
 
+    public function buildThemeUpdateScopeKey(string $serverHost, string $siteDomain): string
+    {
+        return hash('sha256', implode('|', [
+            'theme_update',
+            mb_strtolower(trim($serverHost)),
+            mb_strtolower(trim($siteDomain)),
+        ]));
+    }
+
     public function acquireOrFail(string $scopeKey, int $runId, int $ownerId, int $ttlSeconds = 900): void
     {
         $now = now();

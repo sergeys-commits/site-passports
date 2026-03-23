@@ -27,6 +27,11 @@ class Site extends Model
         return $this->belongsTo(SiteGroup::class, 'group_id');
     }
 
+    public function siteGroup(): BelongsTo
+    {
+        return $this->belongsTo(SiteGroup::class, 'group_id');
+    }
+
     public function plugins(): HasMany
     {
         return $this->hasMany(SitePlugin::class);
