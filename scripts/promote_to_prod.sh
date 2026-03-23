@@ -1,108 +1,93 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE=""
-STAGE_DOMAIN=""
-DOMAIN=""
-DB_HOST=""
-DB_ROOT_PASS=""
-SITES_ROOT=""
-WP_SITE_USER=""
-
 for arg in "$@"; do
-  case "$arg" in
-    --mode=*) MODE="${arg#*=}" ;;
-    --stage-domain=*) STAGE_DOMAIN="${arg#*=}" ;;
-    --domain=*) DOMAIN="${arg#*=}" ;;
-    --db-host=*) DB_HOST="${arg#*=}" ;;
+  case $arg in
+    --mode=*)             MODE="${arg#*=}" ;;
+    --stage-domain=*)     STAGE_DOMAIN="${arg#*=}" ;;
+    --domain=*)           PROD_DOMAIN="${arg#*=}" ;;
+    --db-host=*)          DB_HOST="${arg#*=}" ;;
     --db-root-password=*) DB_ROOT_PASS="${arg#*=}" ;;
-    --wp-sites-root=*) SITES_ROOT="${arg#*=}" ;;
-    --wp-site-user=*) WP_SITE_USER="${arg#*=}" ;;
+    --wp-sites-root=*)    WP_SITES_ROOT="${arg#*=}" ;;
+    --wp-site-user=*)     WP_SITE_USER="${arg#*=}" ;;
   esac
 done
 
-log() { echo "[$(date '+%H:%M:%S')] $*"; }
-fail() { echo "[ERROR] $*" >&2; exit 1; }
+DB_HOST_IP="${DB_HOST%:*}"
+DB_HOST_PORT="${DB_HOST#*:}"
+STAGE_DIR="${WP_SITES_ROOT}/${STAGE_DOMAIN}"
+PROD_DIR="${WP_SITES_ROOT}/${PROD_DOMAIN}"
+STAGE_DB=$(echo "${STAGE_DOMAIN}" | tr '.-' '_' | cut -c1-64)
+PROD_DB=$(echo "${PROD_DOMAIN}"   | tr '.-' '_' | cut -c1-64)
+PROD_DB_USER=$(echo "${PROD_DOMAIN}" | tr '.-' '_' | cut -c1-32)
+PROD_DB_PASS=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c24)
 
-[[ -n "$STAGE_DOMAIN" ]] || fail "--stage-domain is required"
-[[ -n "$DOMAIN" ]] || fail "--domain (production) is required"
-[[ -n "$SITES_ROOT" ]] || fail "--wp-sites-root is required"
-[[ -n "$WP_SITE_USER" ]] || fail "--wp-site-user is required"
+MYSQL="mysql -h${DB_HOST_IP} -P${DB_HOST_PORT} -uroot -p${DB_ROOT_PASS}"
 
-DB_ROOT_USER="${WP_DB_ROOT_USER:-root}"
-DB_HOST_ONLY="${DB_HOST%%:*}"
-DB_PORT="${DB_HOST##*:}"
-[[ "$DB_PORT" == "$DB_HOST" ]] && DB_PORT="3306"
+# ── Step 1: Preflight ────────────────────────────────────────
+echo "[1/7] Preflight checks"
+[ -d "${STAGE_DIR}" ] || { echo "[ERROR] Stage dir not found: ${STAGE_DIR}" >&2; exit 1; }
+[ -d "${PROD_DIR}" ]  || { echo "[ERROR] Prod dir not found: ${PROD_DIR} — create in ISPManager" >&2; exit 1; }
 
-STAGE_DIR="${SITES_ROOT}/${STAGE_DOMAIN}"
-PROD_DIR="${SITES_ROOT}/${DOMAIN}"
-STAGE_DB="wp_$(echo "${STAGE_DOMAIN}" | tr '.-' '_' | cut -c1-50)"
-PROD_DB="wp_$(echo "${DOMAIN}" | tr '.-' '_' | cut -c1-50)"
-PROD_USER="$(echo "${PROD_DB}" | cut -c1-32)"
-PROD_PASS="$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c 24)"
+$MYSQL -e "SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='${STAGE_DB}';" 2>/dev/null \
+  | grep -q "${STAGE_DB}" \
+  || { echo "[ERROR] Stage DB not found: ${STAGE_DB}" >&2; exit 1; }
 
-mysql_exec() {
-  mysql -u"${DB_ROOT_USER}" ${DB_ROOT_PASS:+-p"${DB_ROOT_PASS}"} -h"${DB_HOST_ONLY}" -P"${DB_PORT}" "$@"
+# ── Step 2: rsync ────────────────────────────────────────────
+echo "[2/7] Syncing files stage → prod"
+rsync -a --delete \
+  --exclude='wp-config.php' \
+  "${STAGE_DIR}/" "${PROD_DIR}/"
+
+# ── Step 3: Create prod DB ───────────────────────────────────
+echo "[3/7] Creating prod database: ${PROD_DB}"
+$MYSQL -e "CREATE DATABASE IF NOT EXISTS \`${PROD_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null
+$MYSQL -e "CREATE USER IF NOT EXISTS '${PROD_DB_USER}'@'localhost' IDENTIFIED BY '${PROD_DB_PASS}';" 2>/dev/null
+$MYSQL -e "CREATE USER IF NOT EXISTS '${PROD_DB_USER}'@'127.0.0.1' IDENTIFIED BY '${PROD_DB_PASS}';" 2>/dev/null
+$MYSQL -e "GRANT ALL PRIVILEGES ON \`${PROD_DB}\`.* TO '${PROD_DB_USER}'@'localhost';" 2>/dev/null
+$MYSQL -e "GRANT ALL PRIVILEGES ON \`${PROD_DB}\`.* TO '${PROD_DB_USER}'@'127.0.0.1';" 2>/dev/null
+$MYSQL -e "FLUSH PRIVILEGES;" 2>/dev/null
+
+# ── Step 4: Dump & import ────────────────────────────────────
+echo "[4/7] Dumping stage DB and importing to prod"
+TMP_DUMP="/tmp/promote_${STAGE_DB}_$(date +%s).sql"
+mysqldump -h"${DB_HOST_IP}" -P"${DB_HOST_PORT}" -uroot -p"${DB_ROOT_PASS}" \
+  "${STAGE_DB}" > "${TMP_DUMP}" 2>/dev/null
+$MYSQL "${PROD_DB}" < "${TMP_DUMP}" 2>/dev/null
+rm -f "${TMP_DUMP}"
+
+# ── Step 5: wp-config ────────────────────────────────────────
+echo "[5/7] Writing wp-config.php"
+cat > "${PROD_DIR}/wp-config.php" <<EOF
+<?php
+define('DB_NAME',     '${PROD_DB}');
+define('DB_USER',     '${PROD_DB_USER}');
+define('DB_PASSWORD', '${PROD_DB_PASS}');
+define('DB_HOST', '127.0.0.1');
+define('DB_CHARSET',  'utf8mb4');
+define('DB_COLLATE',  '');
+\$table_prefix = 'wp_';
+define('WP_DEBUG', false);
+define('WP_HOME',   'https://${PROD_DOMAIN}');
+define('WP_SITEURL','https://${PROD_DOMAIN}');
+if ( ! defined( 'ABSPATH' ) ) {
+    define( 'ABSPATH', __DIR__ . '/' );
 }
+require_once ABSPATH . 'wp-settings.php';
+EOF
 
-log "=== Promote to production: ${STAGE_DOMAIN} → ${DOMAIN} ==="
+# ── Step 6: search-replace ───────────────────────────────────
+echo "[6/7] WP search-replace"
+wp --path="${PROD_DIR}" --allow-root \
+  search-replace "https://${STAGE_DOMAIN}" "https://${PROD_DOMAIN}" \
+  --all-tables --skip-columns=guid 2>/dev/null
+wp --path="${PROD_DIR}" --allow-root \
+  search-replace "http://${STAGE_DOMAIN}" "https://${PROD_DOMAIN}" \
+  --all-tables --skip-columns=guid 2>/dev/null
 
-log "Preflight: stage dir ${STAGE_DIR}"
-[[ -d "$STAGE_DIR" ]] || fail "Stage directory not found: ${STAGE_DIR}"
-
-log "Preflight: prod dir ${PROD_DIR}"
-[[ -d "$PROD_DIR" ]] || fail "Production directory not found: ${PROD_DIR}. Create domain in ISPManager first."
-
-log "Preflight: stage database ${STAGE_DB}"
-if ! mysql_exec -e "USE \`${STAGE_DB}\`" >/dev/null 2>&1; then
-  fail "Stage database not accessible or missing: ${STAGE_DB}"
-fi
-
-log "Step 2: rsync stage → prod (excluding wp-config.php)"
-rsync -a --delete --exclude='wp-config.php' "${STAGE_DIR}/" "${PROD_DIR}/"
-
-log "Step 3: create production database and user"
-mysql_exec <<SQL
-CREATE DATABASE IF NOT EXISTS \`${PROD_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS '${PROD_USER}'@'localhost' IDENTIFIED BY '${PROD_PASS}';
-GRANT ALL PRIVILEGES ON \`${PROD_DB}\`.* TO '${PROD_USER}'@'localhost';
-CREATE USER IF NOT EXISTS '${PROD_USER}'@'127.0.0.1' IDENTIFIED BY '${PROD_PASS}';
-GRANT ALL PRIVILEGES ON \`${PROD_DB}\`.* TO '${PROD_USER}'@'127.0.0.1';
-FLUSH PRIVILEGES;
-SQL
-
-DUMP="$(mktemp)"
-trap 'rm -f "${DUMP}"' EXIT
-
-log "Step 4: dump stage DB → import prod DB"
-mysqldump -u"${DB_ROOT_USER}" ${DB_ROOT_PASS:+-p"${DB_ROOT_PASS}"} -h"${DB_HOST_ONLY}" -P"${DB_PORT}" \
-  "${STAGE_DB}" > "${DUMP}"
-mysql -u"${DB_ROOT_USER}" ${DB_ROOT_PASS:+-p"${DB_ROOT_PASS}"} -h"${DB_HOST_ONLY}" -P"${DB_PORT}" \
-  "${PROD_DB}" < "${DUMP}"
-rm -f "${DUMP}"
-trap - EXIT
-
-log "Step 5: wp-config.php for production"
-wp config create \
-  --path="${PROD_DIR}" \
-  --dbname="${PROD_DB}" \
-  --dbuser="${PROD_USER}" \
-  --dbpass="${PROD_PASS}" \
-  --dbhost="${DB_HOST_ONLY}:${DB_PORT}" \
-  --allow-root \
-  --force 2>&1
-
-wp config set WP_HOME "https://${DOMAIN}" --type=constant --raw --path="${PROD_DIR}" --allow-root 2>&1
-wp config set WP_SITEURL "https://${DOMAIN}" --type=constant --raw --path="${PROD_DIR}" --allow-root 2>&1
-
-log "Step 6: search-replace URLs"
-wp search-replace "https://${STAGE_DOMAIN}" "https://${DOMAIN}" \
-  --path="${PROD_DIR}" --allow-root --all-tables --skip-columns=guid 2>&1
-wp search-replace "http://${STAGE_DOMAIN}" "https://${DOMAIN}" \
-  --path="${PROD_DIR}" --allow-root --all-tables --skip-columns=guid 2>&1
-
-log "Step 7: ownership ${WP_SITE_USER}"
+# ── Step 7: Permissions ──────────────────────────────────────
+echo "[7/7] Setting permissions"
 chown -R "${WP_SITE_USER}:${WP_SITE_USER}" "${PROD_DIR}"
 
-log "=== Promote complete ==="
-echo "{\"status\":\"success\",\"domain\":\"${DOMAIN}\"}"
+echo "[done] Promotion complete"
+echo '{"status":"success","domain":"'"${PROD_DOMAIN}"'"}'

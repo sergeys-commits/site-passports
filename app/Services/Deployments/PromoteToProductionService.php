@@ -154,7 +154,7 @@ class PromoteToProductionService
                 $this->upsertSite->execute($data->siteId, [
                     'domain' => $data->prodDomain,
                     'admin_url' => 'https://'.$data->prodDomain.'/wp-admin',
-                    'status' => Site::STATUS_PROD,
+                    'status' => 'active',
                 ]);
 
                 $run->status = 'success';
