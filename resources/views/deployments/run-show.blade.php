@@ -3,6 +3,9 @@
 
 <div class="p-6 space-y-4">
 @if(session('ok')) <div class="p-3 bg-green-100 rounded">{{ session('ok') }}</div> @endif
+@if($errors->has('deploy'))
+<div class="p-3 bg-red-100 rounded">{{ $errors->first('deploy') }}</div>
+@endif
 
 <div class="p-4 border rounded">
 <div><b>Action:</b> {{ $run->action_type }}</div>
