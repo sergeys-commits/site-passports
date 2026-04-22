@@ -17,7 +17,7 @@ DB_HOST_IP="${DB_HOST%:*}"
 DB_HOST_PORT="${DB_HOST#*:}"
 STAGE_DIR="${WP_SITES_ROOT}/${STAGE_DOMAIN}"
 PROD_DIR="${WP_SITES_ROOT}/${PROD_DOMAIN}"
-STAGE_DB=$(echo "${STAGE_DOMAIN}" | tr '.-' '_' | cut -c1-64)
+STAGE_DB=$(grep "DB_NAME" "${STAGE_DIR}/wp-config.php" | sed "s/.*'\([^']*\)'.*/\1/" | tail -1)
 
 echo "[dry_run] Checking stage dir: ${STAGE_DIR}"
 [ -d "${STAGE_DIR}" ] || { echo "[ERROR] Stage directory not found: ${STAGE_DIR}" >&2; exit 1; }
