@@ -54,6 +54,7 @@ class DeployThemeService
                 'git_ref' => $data['git_ref'],
                 'targets' => $data['targets'] ?? 'all_active',
                 'force_rebuild' => (bool) ($data['force_rebuild'] ?? false),
+                'skip_smoke' => (bool) ($data['skip_smoke'] ?? false),
                 'pipeline' => 'v2',
             ],
         ]);
@@ -79,6 +80,7 @@ class DeployThemeService
         $gitRef = (string) ($meta['git_ref'] ?? '');
         $targetPolicy = (string) ($meta['targets'] ?? 'all_active');
         $forceRebuild = (bool) ($meta['force_rebuild'] ?? false);
+        $skipSmoke = (bool) ($meta['skip_smoke'] ?? false);
 
         try {
             $site = Site::query()->findOrFail($run->site_id);
@@ -125,8 +127,8 @@ class DeployThemeService
                 $this->upload->upload($artifact, $site, $target, $log);
                 $this->upload->activateTheme($site, $target, $log);
                 $smoke = $this->upload->smokeCheck($site, $target);
-                $log($smoke['ok'] ? 'stdout' : 'stderr', $smoke['message']);
-                if (! $smoke['ok']) {
+                $log($smoke['ok'] ? 'stdout' : 'stderr', $smoke['message'].($skipSmoke && ! $smoke['ok'] ? ' (skip_smoke=1, non-fatal)' : ''));
+                if (! $smoke['ok'] && ! $skipSmoke) {
                     throw new RuntimeException($smoke['message']);
                 }
             }

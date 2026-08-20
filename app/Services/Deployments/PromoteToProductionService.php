@@ -226,10 +226,10 @@ class PromoteToProductionService
                 'wp_config_pins_written' => false,
             ]);
             $log('stdout', 'Created production SiteTarget');
-        } else {
-            $prodTarget->is_active = true;
-            $prodTarget->save();
-        }
+        // Promote script rewrites wp-config without FACTORY_SITE_* — force re-write pins.
+        $prodTarget->wp_config_pins_written = false;
+        $prodTarget->is_active = true;
+        $prodTarget->save();
 
         // Deactivate staging optionally kept active for now
         $site->lifecycle = Site::LIFECYCLE_PRODUCTION;
@@ -243,16 +243,24 @@ class PromoteToProductionService
             'force_rebuild' => false,
             'mode' => 'live',
             'requested_by' => $data->requestedBy,
+            'skip_smoke' => true, // prod DNS/TLS may lag; content+theme already rsynced
         ]);
         $log('stdout', 'DeployTheme to production run #'.$themeRun->id.' (same ref '.$site->theme_git_ref.')');
         $themeRun = $this->deployTheme->executeRun($themeRun);
         $meta = $run->meta_json ?? [];
         $meta['theme_run_id'] = $themeRun->id;
         $meta['theme_status'] = $themeRun->status;
+        $themeFail = (string) (($themeRun->meta_json ?? [])['failure_reason'] ?? '');
+        if ($themeFail !== '') {
+            $meta['theme_failure_reason'] = $themeFail;
+            $log('stderr', 'DeployTheme failure: '.$themeFail);
+        }
         $run->meta_json = $meta;
         if ($themeRun->status !== 'success') {
             $run->status = 'failed';
-            $log('stderr', 'Promote content OK but DeployTheme to production failed.');
+            $log('stderr', 'Promote content OK but DeployTheme to production failed — see run #'.$themeRun->id);
+        } else {
+            $log('stdout', 'DeployTheme to production OK (smoke skipped on promote)');
         }
         $run->save();
     }
