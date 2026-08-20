@@ -10,6 +10,8 @@ use RuntimeException;
 
 class ThemeBuildService
 {
+    public const ARTIFACT_PACKAGE_VERSION = 2;
+
     public function __construct(
         private readonly ThemeRefResolver $refs,
     ) {}
@@ -42,10 +44,14 @@ class ThemeBuildService
     {
         $key = $this->cacheKey($gitSha, $site);
         $existing = ThemeArtifact::query()->where('cache_key', $key)->first();
-        if ($existing && ! $forceRebuild && is_dir($existing->storage_path)) {
+        if ($existing && ! $forceRebuild && $this->artifactCacheIsComplete($existing)) {
             $log && $log('stdout', 'Using cached artifact: '.$key);
 
             return $existing;
+        }
+
+        if ($existing && ! $forceRebuild) {
+            $log && $log('stdout', 'Cached artifact incomplete or outdated package — rebuilding: '.$key);
         }
 
         $log && $log('stdout', 'Building theme artifact: '.$key);
@@ -93,6 +99,7 @@ class ThemeBuildService
         File::ensureDirectoryExists($dest);
 
         $this->copyThemePackage($src, $dest);
+        File::put($dest.'/.artifact_package_version', (string) self::ARTIFACT_PACKAGE_VERSION);
         $log && $log('stdout', 'Artifact stored at '.$dest);
 
         return ThemeArtifact::query()->updateOrCreate(
@@ -130,36 +137,66 @@ class ThemeBuildService
         }
     }
 
+    /**
+     * Full theme tree minus build/VCS junk. Spec: PHP + config + dist + … without node_modules.
+     */
     private function copyThemePackage(string $src, string $dest): void
     {
-        $include = [
-            'style.css',
-            'functions.php',
-            'index.php',
-            'header.php',
-            'footer.php',
-            'screenshot.png',
-            'theme.json',
+        $excludes = [
+            'node_modules',
+            '.git',
+            '.github',
+            '.idea',
+            '.vscode',
+            '.cursor',
+            'tests',
+            'test',
+            'phpunit.xml',
+            'phpunit.xml.dist',
+            '.phpunit.result.cache',
+            'coverage',
+            '.DS_Store',
         ];
 
-        foreach ($include as $file) {
-            if (is_file($src.'/'.$file)) {
-                File::copy($src.'/'.$file, $dest.'/'.$file);
-            }
+        $excludeArgs = [];
+        foreach ($excludes as $ex) {
+            $excludeArgs[] = '--exclude='.$ex;
         }
 
-        foreach (['inc', 'config', 'dist', 'templates', 'parts', 'patterns', 'assets'] as $dir) {
-            if (is_dir($src.'/'.$dir)) {
-                File::copyDirectory($src.'/'.$dir, $dest.'/'.$dir);
-            }
+        $srcTrailing = rtrim($src, '/').'/';
+        $destTrailing = rtrim($dest, '/').'/';
+
+        $cmd = array_merge(
+            ['rsync', '-a', '--delete'],
+            $excludeArgs,
+            [$srcTrailing, $destTrailing],
+        );
+
+        $result = Process::timeout(300)->run($cmd);
+        if (! $result->successful()) {
+            throw new RuntimeException('rsync theme package failed: '.$result->errorOutput());
         }
 
-        // Copy remaining PHP templates at root
-        foreach (File::files($src) as $file) {
-            $name = $file->getFilename();
-            if (str_ends_with($name, '.php') && ! is_file($dest.'/'.$name)) {
-                File::copy($file->getPathname(), $dest.'/'.$name);
-            }
+        if (! is_file($dest.'/style.css') && ! is_file($dest.'/functions.php')) {
+            throw new RuntimeException('Theme package incomplete: style.css/functions.php missing after copy.');
         }
+        if (! is_dir($dest.'/dist')) {
+            throw new RuntimeException('Theme package incomplete: dist/ missing after copy.');
+        }
+    }
+
+    private function artifactCacheIsComplete(ThemeArtifact $artifact): bool
+    {
+        $path = $artifact->storage_path;
+        if (! is_dir($path) || ! is_dir($path.'/dist')) {
+            return false;
+        }
+
+        $marker = $path.'/.artifact_package_version';
+        if (! is_file($marker)) {
+            return false;
+        }
+
+        return (int) trim((string) file_get_contents($marker)) >= self::ARTIFACT_PACKAGE_VERSION;
     }
 }
