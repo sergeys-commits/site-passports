@@ -76,7 +76,7 @@ WP_SITES_ROOT=/var/www/www-root/data/www
 ## Инфраструктура — важные детали
 
 ### Queue
-- v2 provision / DeployTheme: `php artisan queue:work`
+- v2 provision / DeployTheme: systemd unit `passport-queue.service` (см. `deploy/QUEUE_WORKER.md`)
 - Node 20+ on panel for `npm ci && npm run build`
 
 ### SSH для www-root (GitHub доступ)

@@ -1,0 +1,27 @@
+[Unit]
+Description=Site Passports queue worker (DeployTheme / Provision v2)
+After=network.target mysql.service mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-root
+Group=www-root
+WorkingDirectory=/var/www/www-root/data/www/passport-stage.narniapanel.top
+ExecStart=/usr/bin/php artisan queue:work database --sleep=3 --tries=1 --timeout=2400 --max-time=3600
+Restart=always
+RestartSec=5
+Nice=10
+
+# Inherit panel environment from .env via artisan; do not put secrets here.
+Environment=HOME=/var/www/www-root/data
+
+# Hardening (safe defaults for a queue worker)
+NoNewPrivileges=true
+PrivateTmp=true
+
+StandardOutput=append:/var/www/www-root/data/www/passport-stage.narniapanel.top/storage/logs/queue-worker.log
+StandardError=append:/var/www/www-root/data/www/passport-stage.narniapanel.top/storage/logs/queue-worker.log
+
+[Install]
+WantedBy=multi-user.target
