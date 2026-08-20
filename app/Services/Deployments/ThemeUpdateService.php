@@ -55,15 +55,23 @@ class ThemeUpdateService
             );
         }
 
-        if ($this->shouldUseV2Pipeline($data->targetVersion)) {
+        if ($this->shouldUseV2Pipeline($site, $data->targetVersion)) {
             return $this->runV2($data, $site);
         }
 
         return $this->runLegacy($data, $site, $siteDomain);
     }
 
-    private function shouldUseV2Pipeline(string $targetVersion): bool
+    /**
+     * Pipeline sites (pins / profile_pipeline_enabled) always use DeployTheme.
+     * Otherwise route by theme semver: major >= 2 → v2, 1.x → legacy scripts.
+     */
+    private function shouldUseV2Pipeline(Site $site, string $targetVersion): bool
     {
+        if ($site->profile_pipeline_enabled || $site->hasPins() || filled($site->theme_slug)) {
+            return true;
+        }
+
         $ref = trim($targetVersion);
         if (preg_match('/^v?(\d+)\./', $ref, $m)) {
             return (int) $m[1] >= 2;

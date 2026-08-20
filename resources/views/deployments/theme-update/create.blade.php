@@ -23,8 +23,8 @@
                 <input type="text" name="target_version" value="{{ old('target_version', 'latest') }}"
                        class="w-full border rounded p-2" placeholder="v1.2.3, v2.0.0 or latest" maxlength="100" required>
                 <p class="text-xs text-gray-500 mt-1">
-                    Tags <code>1.*</code> use legacy git update scripts.
-                    Tags <code>2+</code> / latest with major≥2 use DeployTheme (build on panel + upload). First 2+ update migrates pins.
+                    Tags <code>1.*</code> on legacy sites use git update scripts (<code>wp-theme-core</code>).
+                    Pipeline sites and tags <code>2+</code> / <code>latest</code> use DeployTheme → <code>themes/{theme_slug}</code>.
                 </p>
             </div>
 
