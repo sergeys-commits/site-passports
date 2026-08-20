@@ -89,11 +89,11 @@ class ServerController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:190'],
-            'connection' => ['required', 'in:local,ssh'],
-            'host' => ['nullable', 'string', 'max:190', 'required_if:connection,ssh'],
+            'access_type' => ['required', 'in:local,ssh'],
+            'host' => ['nullable', 'string', 'max:190', 'required_if:access_type,ssh'],
             'ssh_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
-            'ssh_user' => ['nullable', 'string', 'max:190', 'required_if:connection,ssh'],
-            'ssh_key_path' => ['nullable', 'string', 'max:500', 'required_if:connection,ssh'],
+            'ssh_user' => ['nullable', 'string', 'max:190', 'required_if:access_type,ssh'],
+            'ssh_key_path' => ['nullable', 'string', 'max:500', 'required_if:access_type,ssh'],
             'panel_type' => ['required', 'in:isp,hestia,none'],
             'wp_sites_root' => ['required', 'string', 'max:500'],
             'is_active' => ['sometimes', 'boolean'],
@@ -102,7 +102,7 @@ class ServerController extends Controller
         $data['ssh_port'] = (int) ($data['ssh_port'] ?? 22);
         $data['is_active'] = $request->boolean('is_active', true);
 
-        if ($data['connection'] === Server::CONNECTION_LOCAL) {
+        if ($data['access_type'] === Server::CONNECTION_LOCAL) {
             $data['host'] = $data['host'] ?: '127.0.0.1';
         }
 

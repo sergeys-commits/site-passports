@@ -23,7 +23,7 @@ class Server extends Model
         'ssh_port',
         'ssh_user',
         'ssh_key_path',
-        'connection',
+        'access_type',
         'panel_type',
         'wp_sites_root',
         'is_active',
@@ -41,14 +41,12 @@ class Server extends Model
 
     public function isLocal(): bool
     {
-        // Column is named "connection"; must use getAttribute — $this->connection
-        // is Eloquent's DB connection name property, not the column value.
-        return $this->getAttribute('connection') === self::CONNECTION_LOCAL;
+        return $this->access_type === self::CONNECTION_LOCAL;
     }
 
     public function isSsh(): bool
     {
-        return $this->getAttribute('connection') === self::CONNECTION_SSH;
+        return $this->access_type === self::CONNECTION_SSH;
     }
 
     public function resolveDocroot(string $domain): string

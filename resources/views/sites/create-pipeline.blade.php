@@ -30,7 +30,7 @@
                 <select name="server_id" class="w-full border rounded px-3 py-2" required>
                     @foreach($servers as $server)
                         <option value="{{ $server->id }}" @selected((int) old('server_id') === $server->id)>
-                            {{ $server->name }} ({{ $server->connection }})
+                            {{ $server->name }} ({{ $server->access_type }})
                         </option>
                     @endforeach
                 </select>

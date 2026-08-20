@@ -5,9 +5,9 @@
 </div>
 <div>
     <label class="block text-sm mb-1">Connection</label>
-    <select name="connection" class="w-full border rounded px-3 py-2" required>
+    <select name="access_type" class="w-full border rounded px-3 py-2" required>
         @foreach(['local', 'ssh'] as $c)
-            <option value="{{ $c }}" @selected(old('connection', $server->connection ?? 'local') === $c)>{{ $c }}</option>
+            <option value="{{ $c }}" @selected(old('access_type', $server->access_type ?? 'local') === $c)>{{ $c }}</option>
         @endforeach
     </select>
 </div>

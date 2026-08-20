@@ -29,7 +29,7 @@ class SitePipelineMigrationService
                 $site = $site->fresh();
             }
 
-            $server = Server::query()->where('connection', Server::CONNECTION_LOCAL)->where('is_active', true)->first()
+            $server = Server::query()->where('access_type', Server::CONNECTION_LOCAL)->where('is_active', true)->first()
                 ?? Server::query()->where('is_active', true)->first();
 
             if (! $server) {

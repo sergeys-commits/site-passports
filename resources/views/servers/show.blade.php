@@ -24,7 +24,7 @@
             </div>
         @endif
         <div class="p-4 border rounded space-y-1 text-sm">
-            <div><b>Connection:</b> {{ $server->connection }}</div>
+            <div><b>Connection:</b> {{ $server->access_type }}</div>
             <div><b>Host:</b> {{ $server->host }}</div>
             <div><b>SSH:</b> {{ $server->ssh_user ?: '—' }}:{{ $server->ssh_port }}</div>
             <div><b>Key:</b> <code>{{ $server->ssh_key_path ?: '—' }}</code></div>

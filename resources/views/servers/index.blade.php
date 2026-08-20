@@ -32,7 +32,7 @@
                             <td class="p-3">
                                 <a href="{{ route('servers.show', $server) }}" class="text-blue-600 underline">{{ $server->name }}</a>
                             </td>
-                            <td class="p-3">{{ $server->connection }}</td>
+                            <td class="p-3">{{ $server->access_type }}</td>
                             <td class="p-3">{{ $server->host }}</td>
                             <td class="p-3">{{ $server->panel_type }}</td>
                             <td class="p-3 font-mono text-xs">{{ $server->wp_sites_root }}</td>

@@ -16,7 +16,7 @@ class ServerSeeder extends Seeder
                 'ssh_port' => 22,
                 'ssh_user' => null,
                 'ssh_key_path' => null,
-                'connection' => Server::CONNECTION_LOCAL,
+                'access_type' => Server::CONNECTION_LOCAL,
                 'panel_type' => Server::PANEL_ISP,
                 'wp_sites_root' => env('WP_SITES_ROOT', '/var/www/www-root/data/www'),
                 'is_active' => true,

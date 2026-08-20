@@ -94,7 +94,7 @@ class ProvisionWordPressService
                 throw new RuntimeException(
                     'Remote SSH WordPress provision is not fully automated yet. '.
                     'Create WP on remote, then DeployTheme. Local Server is supported for provision v2. '.
-                    '(server_id='.$server->id.', connection='.$server->getAttribute('connection').')'
+                    '(server_id='.$server->id.', access_type='.$server->access_type.')'
                 );
             }
 
