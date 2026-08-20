@@ -105,24 +105,32 @@ class ThemeUpdateController extends Controller
         $meta = $run->meta_json ?? [];
         $parsed = is_array($meta['parsed'] ?? null) ? $meta['parsed'] : [];
 
-        $status = $run->status === 'success' ? 'success' : 'failed';
+        $status = match ($run->status) {
+            'success' => 'success',
+            'queued' => 'queued',
+            'running' => 'running',
+            default => 'failed',
+        };
         if (($meta['failure_reason'] ?? null) === 'lock_busy') {
             $status = 'cancelled';
         }
 
         $version = null;
+        $message = null;
         if ($run->status === 'success') {
             $version = $run->mode === 'live'
-                ? (string) ($parsed['version'] ?? '')
-                : (string) ($parsed['current_version'] ?? '');
+                ? (string) ($parsed['version'] ?? $meta['resolved_ref'] ?? '')
+                : (string) ($parsed['current_version'] ?? $meta['resolved_ref'] ?? '');
+        } elseif (in_array($run->status, ['queued', 'running'], true)) {
+            $version = (string) ($meta['git_ref'] ?? '');
+            $message = 'DeployTheme '.$run->status.' — see run log.';
         }
 
-        $message = null;
-        if ($run->status !== 'success') {
+        if ($run->status !== 'success' && ! in_array($run->status, ['queued', 'running'], true)) {
             if (($meta['failure_reason'] ?? null) === 'lock_busy') {
                 $message = 'Another deployment is active for this site path.';
             } else {
-                $message = (string) ($parsed['message'] ?? 'Run finished with status '.$run->status);
+                $message = (string) ($parsed['message'] ?? $meta['failure_reason'] ?? 'Run finished with status '.$run->status);
             }
         }
 

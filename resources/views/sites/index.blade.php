@@ -2,8 +2,9 @@
     <x-slot name="header">
         <h2 class="font-semibold text-xl">Sites</h2>
         <div class="flex gap-2">
+            <a href="{{ route('sites.create_pipeline') }}" style="padding:8px 12px;background:#14532d;color:#fff;border-radius:8px;text-decoration:none;">+ Pipeline site (v2)</a>
             <a href="{{ route('deployments.onboard_prod.new') }}" style="padding:8px 12px;background:#111;color:#fff;border-radius:8px;text-decoration:none;">+ Onboard Prod</a>
-            <a href="{{ route('deployments.stage_provision.new') }}" style="padding:8px 12px;background:#0f172a;color:#fff;border-radius:8px;text-decoration:none;">+ Create Stage</a>
+            <a href="{{ route('deployments.stage_provision.new') }}" style="padding:8px 12px;background:#0f172a;color:#fff;border-radius:8px;text-decoration:none;">+ Create Stage (legacy)</a>
         </div>
 
 

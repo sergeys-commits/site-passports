@@ -42,6 +42,8 @@ class PromoteToProductionController extends Controller
             return back()->withErrors(['deploy' => $e->getMessage()])->withInput();
         } catch (AuthorizationException $e) {
             return back()->withErrors(['deploy' => $e->getMessage()])->withInput();
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['deploy' => $e->getMessage()])->withInput();
         } catch (DeploymentScriptException $e) {
             if ($e->deploymentRunId !== null) {
                 return redirect()

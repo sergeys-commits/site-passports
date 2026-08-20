@@ -9,6 +9,7 @@ STAGE_DOMAIN=""
 CMS="wordpress"
 TEMPLATE="default"
 SERVER_HOST="local"
+SKIP_THEME="0"
 
 for arg in "$@"; do
   case "$arg" in
@@ -19,6 +20,7 @@ for arg in "$@"; do
     --cms=*)          CMS="${arg#*=}" ;;
     --template=*)     TEMPLATE="${arg#*=}" ;;
     --server-host=*)  SERVER_HOST="${arg#*=}" ;;
+    --skip-theme=*)   SKIP_THEME="${arg#*=}" ;;
   esac
 done
 
@@ -145,9 +147,11 @@ if [[ -n "$WP_PLUGINS" ]]; then
   done
 fi
 
-# 7. Устанавливаем тему
+# 7. Устанавливаем тему (legacy). v2 pipeline skips — DeployTheme uploads pins build.
 log "Installing theme..."
-if [[ -n "$THEME_REPO" ]]; then
+if [[ "$SKIP_THEME" == "1" || "$SKIP_THEME" == "true" ]]; then
+  log "SKIP: theme install (--skip-theme=1); DeployTheme will upload factory theme"
+elif [[ -n "$THEME_REPO" ]]; then
   THEME_DIR="${SITE_DIR}/wp-content/themes/wp-theme-core"
   rm -rf "${THEME_DIR}"
   GIT_SSH_COMMAND="ssh -i /var/www/.ssh/deploy_theme -o StrictHostKeyChecking=no" git clone "${THEME_REPO}" "${THEME_DIR}" 2>&1

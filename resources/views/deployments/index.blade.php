@@ -43,9 +43,12 @@
         @endif
 
         <ul class="list-disc list-inside space-y-2 text-gray-800">
-            <li><a href="{{ route('deployments.stage_provision.new') }}" class="text-blue-600 underline">Stage provision</a></li>
+            <li><a href="{{ route('sites.create_pipeline') }}" class="text-blue-600 underline">Create pipeline site (v2 A/B)</a></li>
+            <li><a href="{{ route('deployments.stage_provision.new') }}" class="text-blue-600 underline">Stage provision (legacy)</a></li>
             <li><a href="{{ route('promote.create') }}" class="text-blue-600 underline">Promote stage → production</a></li>
-            <li><a href="{{ route('theme-update.create') }}" class="text-blue-600 underline">Theme update</a></li>
+            <li><a href="{{ route('theme-update.create') }}" class="text-blue-600 underline">Theme update (1.* legacy / 2+ DeployTheme)</a></li>
+            <li><a href="{{ route('servers.index') }}" class="text-blue-600 underline">Servers</a></li>
         </ul>
+        <p class="text-sm text-gray-500">Queued runs: refresh the run log page. Ensure <code>php artisan queue:work</code> is running for v2 jobs.</p>
     </div>
 </x-app-layout>

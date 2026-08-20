@@ -15,6 +15,15 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('sites.index')" :active="request()->routeIs('sites.*')">
+                        {{ __('Sites') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('servers.index')" :active="request()->routeIs('servers.*')">
+                        {{ __('Servers') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('deployments.index')" :active="request()->routeIs('deployments.*') || request()->routeIs('theme-update.*') || request()->routeIs('promote.*')">
+                        {{ __('Deployments') }}
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -69,6 +78,15 @@
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('sites.index')" :active="request()->routeIs('sites.*')">
+                {{ __('Sites') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('servers.index')" :active="request()->routeIs('servers.*')">
+                {{ __('Servers') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('deployments.index')" :active="request()->routeIs('deployments.*') || request()->routeIs('theme-update.*') || request()->routeIs('promote.*')">
+                {{ __('Deployments') }}
             </x-responsive-nav-link>
         </div>
 

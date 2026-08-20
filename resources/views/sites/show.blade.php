@@ -9,11 +9,19 @@
 @if(session('ok'))
 <div class="p-3 bg-green-100 rounded">{{ session('ok') }}</div>
 @endif
-<div class="p-4 border rounded">
+<div class="p-4 border rounded space-y-1 text-sm">
 <div><b>Domain:</b> {{ $site->domain }}</div>
 <div><b>Stage:</b> {{ $site->stage_domain }}</div>
 <div><b>Status:</b> {{ $site->status }}</div>
+<div><b>Lifecycle:</b> {{ $site->lifecycle ?? '—' }}</div>
+<div><b>Scenario:</b> {{ $site->scenario ?? '—' }}</div>
 <div><b>Theme:</b> {{ $site->theme_name }} {{ $site->theme_version }}</div>
+<div><b>theme_git_ref:</b> {{ $site->theme_git_ref ?? '—' }}</div>
+<div><b>theme_slug:</b> {{ $site->theme_slug ?? '—' }}</div>
+<div><b>profile:</b> {{ $site->profile_id ?? '—' }}{{ $site->profile_revision ? '@'.$site->profile_revision : '' }}</div>
+<div><b>public_token:</b> {{ $site->public_token ?? '—' }}</div>
+<div><b>site_salt:</b> {{ $site->hasPins() ? '•••••••• (set)' : '—' }}</div>
+<div><b>pipeline:</b> {{ $site->profile_pipeline_enabled ? 'v2 enabled' : 'legacy / off' }}</div>
 <div><b>Launch date:</b> {{ optional($site->launch_date)->format('Y-m-d') }}</div>
 <div><b>Transfer date:</b> {{ optional($site->transfer_date)->format('Y-m-d') }}</div>
 <div><b>Notes:</b> {{ $site->notes }}</div>
@@ -31,6 +39,25 @@
 </div>
 @endif
 </div>
+
+@if($site->targets->isNotEmpty())
+<div class="p-4 border rounded">
+<h3 class="font-semibold mb-2">Targets</h3>
+<ul class="list-disc pl-5 text-sm">
+@foreach($site->targets as $t)
+<li>
+{{ $t->kind }} — {{ $t->domain }}
+@if($t->server) on {{ $t->server->name }} @endif
+— pins {{ $t->wp_config_pins_written ? 'written' : 'pending' }}
+@if($t->basic_auth) — basic_auth @endif
+@if(!$t->is_active) — inactive @endif
+</li>
+@endforeach
+</ul>
+<p class="text-xs text-gray-500 mt-2">Removing basic auth is a separate server operation (not theme update).</p>
+</div>
+@endif
+
 <div class="p-4 border rounded">
 <h3 class="font-semibold mb-2">Events</h3>
 <ul class="list-disc pl-5">

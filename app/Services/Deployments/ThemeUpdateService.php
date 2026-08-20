@@ -5,10 +5,14 @@ namespace App\Services\Deployments;
 use App\Actions\EmitSiteEventAction;
 use App\Actions\UpdateSiteThemeVersionAction;
 use App\DTO\ThemeUpdateData;
+use App\Jobs\DeployThemeJob;
 use App\Models\DeploymentLog;
 use App\Models\DeploymentRun;
 use App\Models\Site;
+use App\Models\SiteTarget;
 use App\Models\User;
+use App\Services\Themes\DeployThemeService;
+use App\Services\Themes\ThemeRefResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
@@ -21,6 +25,8 @@ class ThemeUpdateService
         private readonly DeploymentRunGuardService $guard,
         private readonly UpdateSiteThemeVersionAction $updateThemeVersion,
         private readonly EmitSiteEventAction $emitSiteEvent,
+        private readonly ThemeRefResolver $themeRefs,
+        private readonly DeployThemeService $deployTheme,
     ) {}
 
     public function run(ThemeUpdateData $data): DeploymentRun
@@ -49,12 +55,136 @@ class ThemeUpdateService
             );
         }
 
+        if ($this->shouldUseV2Pipeline($data->targetVersion)) {
+            return $this->runV2($data, $site);
+        }
+
+        return $this->runLegacy($data, $site, $siteDomain);
+    }
+
+    private function shouldUseV2Pipeline(string $targetVersion): bool
+    {
+        $ref = trim($targetVersion);
+        if (preg_match('/^v?(\d+)\./', $ref, $m)) {
+            return (int) $m[1] >= 2;
+        }
+
+        try {
+            $resolved = $this->themeRefs->resolve($ref);
+
+            return ! $resolved['is_legacy'];
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function runV2(ThemeUpdateData $data, Site $site): DeploymentRun
+    {
+        $targetsPolicy = $data->environment === 'stage' ? 'staging' : 'production';
+
+        if ($data->mode === 'dry_run') {
+            return $this->dryRunV2($data, $site, $targetsPolicy);
+        }
+
+        $run = $this->deployTheme->queue([
+            'site_id' => $site->id,
+            'git_ref' => $data->targetVersion,
+            'targets' => $targetsPolicy,
+            'force_rebuild' => false,
+            'mode' => 'live',
+            'requested_by' => $data->requestedBy,
+        ]);
+
+        DeployThemeJob::dispatch($run->id);
+
+        return $run->fresh();
+    }
+
+    private function dryRunV2(ThemeUpdateData $data, Site $site, string $targetsPolicy): DeploymentRun
+    {
+        $run = DeploymentRun::create([
+            'site_id' => $site->id,
+            'action_type' => 'deploy_theme',
+            'mode' => 'dry_run',
+            'status' => 'running',
+            'requested_by' => $data->requestedBy,
+            'started_at' => now(),
+            'meta_json' => [
+                'git_ref' => $data->targetVersion,
+                'targets' => $targetsPolicy,
+                'pipeline' => 'v2',
+            ],
+        ]);
+
+        $line = 1;
+        $log = function (string $stream, string $msg) use ($run, &$line): void {
+            DeploymentLog::create([
+                'run_id' => $run->id,
+                'stream' => $stream,
+                'line_no' => $line++,
+                'message' => $msg,
+            ]);
+        };
+
+        try {
+            $resolved = $this->themeRefs->resolve($data->targetVersion);
+            $log('stdout', 'Resolved '.$data->targetVersion.' → '.$resolved['sha']);
+            if ($resolved['is_legacy']) {
+                throw new InvalidArgumentException('Ref resolves to legacy 1.x — use legacy path.');
+            }
+
+            $site->load('targets.server');
+            $query = $site->targets()->where('is_active', true);
+            $targets = match ($targetsPolicy) {
+                'staging' => $query->where('kind', SiteTarget::KIND_STAGING)->get(),
+                'production' => $query->where('kind', SiteTarget::KIND_PRODUCTION)->get(),
+                default => $query->get(),
+            };
+
+            if ($targets->isEmpty()) {
+                $log('stdout', 'No SiteTargets yet — first v2 deploy will migrate pins/targets from domain fields.');
+            } else {
+                foreach ($targets as $t) {
+                    $log('stdout', "Target {$t->kind} {$t->domain} path=".$t->resolvedWpPath());
+                }
+            }
+
+            if ($site->hasPins()) {
+                $log('stdout', 'Pins present: profile='.$site->profile_id.' slug='.$site->theme_slug);
+            } else {
+                $log('stdout', 'Pins missing — will be generated on first live v2 deploy.');
+            }
+
+            $run->status = 'success';
+            $run->finished_at = now();
+            $run->meta_json = array_merge($run->meta_json ?? [], [
+                'parsed' => [
+                    'status' => 'success',
+                    'current_version' => $resolved['ref'],
+                    'message' => 'v2 dry_run OK',
+                ],
+            ]);
+            $run->save();
+            $log('stdout', 'v2 dry_run OK');
+        } catch (\Throwable $e) {
+            $log('stderr', $e->getMessage());
+            $run->status = 'failed';
+            $run->finished_at = now();
+            $run->save();
+        }
+
+        return $run->fresh();
+    }
+
+    private function runLegacy(ThemeUpdateData $data, Site $site, string $siteDomain): DeploymentRun
+    {
         $themeName = $site->siteGroup?->theme_name ?? 'wp-theme-core';
 
         $meta = [
             'site_id' => $site->id,
             'target_version' => $data->targetVersion,
             'environment' => $data->environment,
+            'pipeline' => 'v1_legacy',
         ];
 
         $run = DeploymentRun::create([
@@ -89,7 +219,7 @@ class ThemeUpdateService
                 $this->guard->acquireOrFail(
                     $scopeKey,
                     (int) $run->id,
-                    (int) $user->id,
+                    (int) $data->requestedBy,
                     (int) config('deployment.theme_update_lock_ttl', 900),
                 );
             } catch (RuntimeException $e) {

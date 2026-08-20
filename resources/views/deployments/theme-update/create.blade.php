@@ -21,7 +21,11 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Target version</label>
                 <input type="text" name="target_version" value="{{ old('target_version', 'latest') }}"
-                       class="w-full border rounded p-2" placeholder="v1.2.3 or latest" maxlength="100" required>
+                       class="w-full border rounded p-2" placeholder="v1.2.3, v2.0.0 or latest" maxlength="100" required>
+                <p class="text-xs text-gray-500 mt-1">
+                    Tags <code>1.*</code> use legacy git update scripts.
+                    Tags <code>2+</code> / latest with major≥2 use DeployTheme (build on panel + upload). First 2+ update migrates pins.
+                </p>
             </div>
 
             @if(count($tags) > 0)

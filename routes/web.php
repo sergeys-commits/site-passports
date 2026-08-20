@@ -4,6 +4,7 @@ use App\Http\Controllers\DeploymentConsoleController;
 use App\Http\Controllers\Deployments\PromoteToProductionController;
 use App\Http\Controllers\Deployments\ThemeUpdateController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ServerController;
 use App\Http\Controllers\SiteController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,9 +17,20 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
     Route::post('/sites', [SiteController::class, 'store'])->name('sites.store');
+    Route::get('/sites/create-pipeline', [SiteController::class, 'createPipeline'])->name('sites.create_pipeline');
+    Route::post('/sites/create-pipeline', [SiteController::class, 'storePipeline'])->name('sites.store_pipeline');
     Route::get('/sites/{site}', [SiteController::class, 'show'])->name('sites.show');
     Route::get('/sites/{site}/edit', [SiteController::class, 'edit'])->name('sites.edit');
     Route::patch('/sites/{site}', [SiteController::class, 'update'])->name('sites.update');
+
+    Route::get('/servers', [ServerController::class, 'index'])->name('servers.index');
+    Route::get('/servers/create', [ServerController::class, 'create'])->name('servers.create');
+    Route::post('/servers', [ServerController::class, 'store'])->name('servers.store');
+    Route::get('/servers/{server}', [ServerController::class, 'show'])->name('servers.show');
+    Route::get('/servers/{server}/edit', [ServerController::class, 'edit'])->name('servers.edit');
+    Route::put('/servers/{server}', [ServerController::class, 'update'])->name('servers.update');
+    Route::delete('/servers/{server}', [ServerController::class, 'destroy'])->name('servers.destroy');
+    Route::post('/servers/{server}/check', [ServerController::class, 'check'])->name('servers.check');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

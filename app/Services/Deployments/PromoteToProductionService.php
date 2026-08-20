@@ -9,10 +9,14 @@ use App\Exceptions\DeploymentAlreadyRunningException;
 use App\Exceptions\DeploymentScriptException;
 use App\Models\DeploymentLog;
 use App\Models\DeploymentRun;
+use App\Models\Server;
 use App\Models\Site;
+use App\Models\SiteTarget;
 use App\Models\User;
+use App\Services\Themes\DeployThemeService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class PromoteToProductionService
 {
@@ -20,6 +24,7 @@ class PromoteToProductionService
         private readonly DeploymentRunGuardService $guard,
         private readonly UpsertSiteFromDeploymentAction $upsertSite,
         private readonly EmitSiteEventAction $emitSiteEvent,
+        private readonly DeployThemeService $deployTheme,
     ) {}
 
     public function run(PromoteToProductionData $data): DeploymentRun
@@ -27,9 +32,17 @@ class PromoteToProductionService
         $user = User::query()->findOrFail($data->requestedBy);
         $this->authorizeLive($user, $data->mode);
 
-        $site = Site::query()->findOrFail($data->siteId);
+        $site = Site::query()->with('targets.server')->findOrFail($data->siteId);
         if ($site->status !== Site::STATUS_STAGE) {
             throw new AuthorizationException('Only stage sites can be promoted.');
+        }
+
+        if ($site->profile_pipeline_enabled && $data->mode === 'live') {
+            if (! filled($site->theme_git_ref)) {
+                throw new InvalidArgumentException(
+                    'Pipeline site has no theme_git_ref. Deploy theme to staging first (same ref will be promoted).'
+                );
+            }
         }
 
         $meta = [
@@ -37,6 +50,7 @@ class PromoteToProductionService
             'stage_domain' => $data->stageDomain,
             'prod_domain' => $data->prodDomain,
             'mode' => $data->mode,
+            'pipeline' => $site->profile_pipeline_enabled ? 'v2' : 'v1_legacy',
         ];
 
         $run = DeploymentRun::create([
@@ -169,12 +183,78 @@ class PromoteToProductionService
                 );
             });
 
+            $site = Site::query()->with('targets.server')->findOrFail($data->siteId);
+            if ($site->profile_pipeline_enabled) {
+                $this->finalizePipelinePromote($site, $data, $run, $log);
+            }
+
             return $run->fresh();
         } finally {
             if ($data->mode === 'live') {
                 $this->guard->releaseByRunId((int) $run->id, 'terminal');
             }
         }
+    }
+
+    private function finalizePipelinePromote(Site $site, PromoteToProductionData $data, DeploymentRun $run, callable $log): void
+    {
+        $server = $site->stagingTarget()?->server
+            ?? Server::query()->where('is_active', true)->orderBy('id')->first();
+
+        if (! $server) {
+            $log('stderr', 'No server for production target; skipping DeployTheme on promote.');
+
+            return;
+        }
+
+        $prodTarget = $site->targets()
+            ->where('kind', SiteTarget::KIND_PRODUCTION)
+            ->where('domain', $data->prodDomain)
+            ->first();
+
+        if (! $prodTarget) {
+            $docroot = $server->resolveDocroot($data->prodDomain);
+            $prodTarget = SiteTarget::create([
+                'site_id' => $site->id,
+                'kind' => SiteTarget::KIND_PRODUCTION,
+                'domain' => $data->prodDomain,
+                'server_id' => $server->id,
+                'docroot' => $docroot,
+                'wp_path' => $docroot,
+                'basic_auth' => false,
+                'is_active' => true,
+                'wp_config_pins_written' => false,
+            ]);
+            $log('stdout', 'Created production SiteTarget');
+        } else {
+            $prodTarget->is_active = true;
+            $prodTarget->save();
+        }
+
+        // Deactivate staging optionally kept active for now
+        $site->lifecycle = Site::LIFECYCLE_PRODUCTION;
+        $site->scenario = $site->scenario ?: Site::SCENARIO_STAGE_THEN_PROD;
+        $site->save();
+
+        $themeRun = $this->deployTheme->queue([
+            'site_id' => $site->id,
+            'git_ref' => (string) $site->theme_git_ref,
+            'targets' => 'production',
+            'force_rebuild' => false,
+            'mode' => 'live',
+            'requested_by' => $data->requestedBy,
+        ]);
+        $log('stdout', 'DeployTheme to production run #'.$themeRun->id.' (same ref '.$site->theme_git_ref.')');
+        $themeRun = $this->deployTheme->executeRun($themeRun);
+        $meta = $run->meta_json ?? [];
+        $meta['theme_run_id'] = $themeRun->id;
+        $meta['theme_status'] = $themeRun->status;
+        $run->meta_json = $meta;
+        if ($themeRun->status !== 'success') {
+            $run->status = 'failed';
+            $log('stderr', 'Promote content OK but DeployTheme to production failed.');
+        }
+        $run->save();
     }
 
     /**
