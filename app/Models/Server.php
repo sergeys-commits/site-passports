@@ -41,12 +41,14 @@ class Server extends Model
 
     public function isLocal(): bool
     {
-        return $this->connection === self::CONNECTION_LOCAL;
+        // Column is named "connection"; must use getAttribute — $this->connection
+        // is Eloquent's DB connection name property, not the column value.
+        return $this->getAttribute('connection') === self::CONNECTION_LOCAL;
     }
 
     public function isSsh(): bool
     {
-        return $this->connection === self::CONNECTION_SSH;
+        return $this->getAttribute('connection') === self::CONNECTION_SSH;
     }
 
     public function resolveDocroot(string $domain): string

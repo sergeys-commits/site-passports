@@ -91,7 +91,11 @@ class ProvisionWordPressService
             if ($server->isLocal()) {
                 $this->provisionLocalWp($site, $target, $log);
             } else {
-                throw new RuntimeException('Remote SSH WordPress provision is not fully automated yet. Create WP on remote, then DeployTheme. Local Server is supported for provision v2.');
+                throw new RuntimeException(
+                    'Remote SSH WordPress provision is not fully automated yet. '.
+                    'Create WP on remote, then DeployTheme. Local Server is supported for provision v2. '.
+                    '(server_id='.$server->id.', connection='.$server->getAttribute('connection').')'
+                );
             }
 
             // Deploy theme via nested run
