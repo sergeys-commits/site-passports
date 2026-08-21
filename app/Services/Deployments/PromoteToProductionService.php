@@ -226,6 +226,8 @@ class PromoteToProductionService
                 'wp_config_pins_written' => false,
             ]);
             $log('stdout', 'Created production SiteTarget');
+        }
+
         // Promote script rewrites wp-config without FACTORY_SITE_* — force re-write pins.
         $prodTarget->wp_config_pins_written = false;
         $prodTarget->is_active = true;
