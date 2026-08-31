@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl">Servers</h2>
-            <a href="{{ route('servers.create') }}" class="px-3 py-2 bg-gray-900 text-white rounded text-sm">+ Add server</a>
+            <a href="{{ route('servers.create') }}" style="padding:8px 12px;background:#14532d;color:#fff;border-radius:8px;text-decoration:none;font-size:0.875rem;">+ Add server</a>
         </div>
     </x-slot>
     <div class="p-6">

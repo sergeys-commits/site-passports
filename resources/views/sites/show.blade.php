@@ -16,6 +16,7 @@
 <div><b>Lifecycle:</b> {{ $site->lifecycle ?? '—' }}</div>
 <div><b>Scenario:</b> {{ $site->scenario ?? '—' }}</div>
 <div><b>Theme:</b> {{ $site->theme_name }} {{ $site->theme_version }}</div>
+<div><b>theme:</b> {{ $site->theme?->name ?? $site->theme_name ?? '—' }}</div>
 <div><b>theme_git_ref:</b> {{ $site->theme_git_ref ?? '—' }}</div>
 <div><b>theme_slug:</b> {{ $site->theme_slug ?? '—' }}</div>
 <div><b>profile:</b> {{ $site->profile_id ?? '—' }}{{ $site->profile_revision ? '@'.$site->profile_revision : '' }}</div>

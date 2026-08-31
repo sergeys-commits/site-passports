@@ -4,19 +4,35 @@ _Обновляется после каждой завершённой зада�
 ---
 
 ## Последнее обновление
-Date: 2026-08-20
-Task: Servers + DeployTheme v2 + scenarios A/B
+Date: 2026-08-31
+Task: Themes registry + server onboarding UX (select theme/ref, split servers, promote server)
 
 ---
 
 ## Сделано
 
-### Servers registry (DONE)
+### Themes registry (DONE)
+- Table `themes` + `sites.theme_id` FK
+- Model/CRUD UI `/themes` (green CTAs), nav link
+- Seed: `wp-theme-core` from `THEME_REPO` / config (`ThemeSeeder`)
+- `ThemeRefResolver` multi-repo (per-theme clone path + `listSemverTags`)
+- DeployTheme / ThemeBuild: resolve site theme, cache_key includes `theme_id`+slug
+- Create pipeline: theme select + git ref datalist (tags)
+- Theme update: filter by theme + tags datalist
+
+### Servers UX (DONE)
+- Green `+ Add server` / `Create` / `Save` buttons
+- Onboarding checklist on create/show
+- Create pipeline: staging + production server (scenario A) or single server (B)
+- Remote SSH: provision_now soft-disabled + warning
+- Promote: production `server_id` select (defaults to staging server)
+
+### Servers registry (DONE — earlier)
 - Model/table `servers` (local|ssh, panel isp|hestia|none, wp_sites_root, SSH key path)
 - UI CRUD `/servers` + Check connection
 - Seed: Local (current host) via `ServerSeeder`
 
-### Theme pipeline v2 (DONE)
+### Theme pipeline v2 (DONE — earlier)
 - Site pins fields + `site_targets` + `theme_artifacts`
 - `CreateSiteService` scenarios A (`stage_then_prod`) / B (`prod_basic_auth`)
 - UI: `/sites/create-pipeline`
@@ -42,7 +58,7 @@ _ничего_
 - Remote SSH full WP provision (upload/DeployTheme OK; WP core install on remote TBD)
 - BulkDeployTheme / Rollback UI
 - Auto docroot in ISP/Hestia
-- Polling UI / GitHub tags API
+- GitHub tags API (local git tags via ThemeRefResolver used instead)
 - Auto-delete old `wp-theme-core` after migration
 - Basic auth remove as first-class server op
 
@@ -54,9 +70,11 @@ _ничего_
 - `servers`
 - `site_targets`
 - `theme_artifacts`
+- `themes`
 
 ### sites — новые поля
 - pins: `brand_key`, `site_salt`, `profile_id`, `profile_revision`, `public_token`, `theme_slug`
+- `theme_id` (FK themes, nullable for legacy)
 - `theme_git_ref`, `last_build_meta`, `lifecycle`, `scenario`, `profile_pipeline_enabled`
 
 ---
@@ -70,6 +88,8 @@ QUEUE_CONNECTION=database
 WP_SITES_ROOT=/var/www/www-root/data/www
 (+ legacy STAGE_PROVISION_*, PROMOTE_*, THEME_UPDATE_* scripts)
 ```
+
+`THEME_REPO` остаётся fallback / seed default; SoT для пайплайна — запись в `themes`.
 
 ---
 
@@ -87,9 +107,22 @@ WP_SITES_ROOT=/var/www/www-root/data/www
 ### Docroot
 - ISP (current) / Hestia (new servers) — manual create before provision
 
+### Добавление remote-сервера
+1. Ключ на панели → `authorized_keys` на remote → `wp_sites_root`
+2. Servers → Create → Check connection
+3. Docroot домена вручную в панели хостинга
+4. Pipeline site с выбором сервера(ов)
+5. Remote: WP вручную, затем DeployTheme (provision WP на SSH ещё не автоматизирован)
+
 ---
 
 ## Acceptance checklist (manual)
+- [ ] Theme CRUD + seed default theme
+- [ ] Create pipeline: choose theme + git ref tags + staging/prod servers
+- [ ] Theme update: filter by theme, tags from selected theme
+- [ ] Server green CTAs visible; checklist on create/show
+- [ ] Promote: choose production server
+- [ ] Remote SSH: provision_now disabled with warning
 - [ ] Server CRUD + local check OK
 - [ ] Create scenario A site + pins/targets
 - [ ] Create scenario B site + basic_auth target

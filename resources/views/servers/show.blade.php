@@ -23,6 +23,7 @@
                 @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
             </div>
         @endif
+        @include('servers._checklist')
         <div class="p-4 border rounded space-y-1 text-sm">
             <div><b>Connection:</b> {{ $server->access_type }}</div>
             <div><b>Host:</b> {{ $server->host }}</div>

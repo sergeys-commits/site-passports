@@ -28,8 +28,12 @@ class ThemeBuildService
             throw new RuntimeException('Site has no salt for cache key.');
         }
 
+        $theme = $site->resolveTheme();
+        $themePart = $theme ? ('t'.$theme->id.'_'.$theme->slug) : 't0_default';
+
         return sprintf(
-            '%s__%s@%d__%s',
+            '%s__%s__%s@%d__%s',
+            $themePart,
             $gitSha,
             $site->profile_id,
             (int) $site->profile_revision,
@@ -54,8 +58,9 @@ class ThemeBuildService
             $log && $log('stdout', 'Cached artifact incomplete or outdated package — rebuilding: '.$key);
         }
 
-        $log && $log('stdout', 'Building theme artifact: '.$key);
-        $src = $this->refs->ensureRepo();
+        $theme = $this->refs->resolveThemeForSite($site);
+        $log && $log('stdout', 'Building theme artifact: '.$key.' (theme='.$theme->slug.')');
+        $src = $this->refs->ensureRepo($theme);
 
         $checkout = Process::timeout(120)->path($src)->run(['git', 'checkout', '--force', $gitSha]);
         if (! $checkout->successful()) {

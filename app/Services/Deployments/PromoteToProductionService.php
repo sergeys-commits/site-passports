@@ -198,7 +198,12 @@ class PromoteToProductionService
 
     private function finalizePipelinePromote(Site $site, PromoteToProductionData $data, DeploymentRun $run, callable $log): void
     {
-        $server = $site->stagingTarget()?->server
+        $server = null;
+        if ($data->serverId) {
+            $server = Server::query()->where('is_active', true)->find($data->serverId);
+        }
+        $server = $server
+            ?? $site->stagingTarget()?->server
             ?? Server::query()->where('is_active', true)->orderBy('id')->first();
 
         if (! $server) {
@@ -206,6 +211,8 @@ class PromoteToProductionService
 
             return;
         }
+
+        $log('stdout', 'Production server: '.$server->name.' (#'.$server->id.')');
 
         $prodTarget = $site->targets()
             ->where('kind', SiteTarget::KIND_PRODUCTION)
@@ -226,6 +233,13 @@ class PromoteToProductionService
                 'wp_config_pins_written' => false,
             ]);
             $log('stdout', 'Created production SiteTarget');
+        } elseif ((int) $prodTarget->server_id !== (int) $server->id) {
+            $docroot = $server->resolveDocroot($data->prodDomain);
+            $prodTarget->server_id = $server->id;
+            $prodTarget->docroot = $docroot;
+            $prodTarget->wp_path = $docroot;
+            $prodTarget->save();
+            $log('stdout', 'Updated production SiteTarget server to #'.$server->id);
         }
 
         // Promote script rewrites wp-config without FACTORY_SITE_* — force re-write pins.

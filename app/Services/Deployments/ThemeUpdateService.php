@@ -78,7 +78,8 @@ class ThemeUpdateService
         }
 
         try {
-            $resolved = $this->themeRefs->resolve($ref);
+            $theme = $site->resolveTheme();
+            $resolved = $this->themeRefs->resolve($ref, $theme);
 
             return ! $resolved['is_legacy'];
         } catch (\Throwable) {
@@ -135,8 +136,9 @@ class ThemeUpdateService
         };
 
         try {
-            $resolved = $this->themeRefs->resolve($data->targetVersion);
-            $log('stdout', 'Resolved '.$data->targetVersion.' → '.$resolved['sha']);
+            $theme = $site->resolveTheme();
+            $resolved = $this->themeRefs->resolve($data->targetVersion, $theme);
+            $log('stdout', ($theme ? 'Theme '.$theme->slug.' — ' : '').'Resolved '.$data->targetVersion.' → '.$resolved['sha']);
             if ($resolved['is_legacy']) {
                 throw new InvalidArgumentException('Ref resolves to legacy 1.x — use legacy path.');
             }

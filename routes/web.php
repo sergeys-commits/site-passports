@@ -6,6 +6,7 @@ use App\Http\Controllers\Deployments\ThemeUpdateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServerController;
 use App\Http\Controllers\SiteController;
+use App\Http\Controllers\ThemeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -31,6 +32,14 @@ Route::middleware('auth')->group(function () {
     Route::put('/servers/{server}', [ServerController::class, 'update'])->name('servers.update');
     Route::delete('/servers/{server}', [ServerController::class, 'destroy'])->name('servers.destroy');
     Route::post('/servers/{server}/check', [ServerController::class, 'check'])->name('servers.check');
+
+    Route::get('/themes', [ThemeController::class, 'index'])->name('themes.index');
+    Route::get('/themes/create', [ThemeController::class, 'create'])->name('themes.create');
+    Route::post('/themes', [ThemeController::class, 'store'])->name('themes.store');
+    Route::get('/themes/{theme}', [ThemeController::class, 'show'])->name('themes.show');
+    Route::get('/themes/{theme}/edit', [ThemeController::class, 'edit'])->name('themes.edit');
+    Route::put('/themes/{theme}', [ThemeController::class, 'update'])->name('themes.update');
+    Route::delete('/themes/{theme}', [ThemeController::class, 'destroy'])->name('themes.destroy');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

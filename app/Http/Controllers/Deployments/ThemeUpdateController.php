@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ThemeUpdateRequest;
 use App\Models\DeploymentRun;
 use App\Models\Site;
+use App\Models\Theme;
 use App\Services\Deployments\ThemeUpdateService;
+use App\Services\Themes\ThemeRefResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -15,23 +17,27 @@ use InvalidArgumentException;
 
 class ThemeUpdateController extends Controller
 {
-    public function create(): View
+    public function create(ThemeRefResolver $refs): View
     {
         $stageSites = Site::query()
-            ->with('siteGroup')
+            ->with(['siteGroup', 'theme'])
             ->where('status', Site::STATUS_STAGE)
             ->orderBy('name')
             ->get();
 
         $prodSites = Site::query()
-            ->with('siteGroup')
+            ->with(['siteGroup', 'theme'])
             ->where('status', 'active')
             ->orderBy('name')
             ->get();
 
-        $tags = [];
+        $themes = Theme::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get();
+        $themeTags = [];
+        foreach ($themes as $theme) {
+            $themeTags[$theme->id] = $refs->listSemverTags($theme, 40);
+        }
 
-        return view('deployments.theme-update.create', compact('stageSites', 'prodSites', 'tags'));
+        return view('deployments.theme-update.create', compact('stageSites', 'prodSites', 'themes', 'themeTags'));
     }
 
     public function run(ThemeUpdateRequest $request, ThemeUpdateService $service): RedirectResponse

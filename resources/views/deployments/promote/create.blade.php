@@ -24,6 +24,7 @@
                         <option
                             value="{{ $s->id }}"
                             data-stage-domain="{{ $s->stage_domain }}"
+                            data-staging-server-id="{{ $s->stagingTarget()?->server_id }}"
                             @selected(old('site_id') == $s->id)
                         >{{ $s->name }} ({{ $s->stage_domain }})</option>
                     @endforeach
@@ -42,6 +43,18 @@
                        class="w-full border rounded p-2" required placeholder="example.com">
             </div>
 
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Production server</label>
+                <select name="server_id" id="server_id" class="w-full border rounded p-2">
+                    @foreach($servers as $server)
+                        <option value="{{ $server->id }}" @selected((int) old('server_id') === $server->id)>
+                            {{ $server->name }} ({{ $server->access_type }})
+                        </option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Defaults to the site’s staging server when you pick a site.</p>
+            </div>
+
             <fieldset class="space-y-2">
                 <legend class="text-sm font-medium text-gray-700">Mode</legend>
                 <label class="flex items-center gap-2">
@@ -55,7 +68,7 @@
             </fieldset>
 
             <div id="live-warning" class="hidden p-3 rounded border border-orange-300 bg-orange-50 text-orange-900 text-sm">
-                This will overwrite production. Make sure the production domain folder exists in ISPManager.
+                This will overwrite production. Make sure the production domain folder exists in ISPManager / Hestia.
             </div>
 
             <div id="confirm-wrap" class="hidden">
@@ -64,7 +77,7 @@
                        class="w-full border rounded p-2" autocomplete="off">
             </div>
 
-            <button type="submit" id="submit-btn" style="padding:10px 16px;background:#111;color:#fff;border-radius:8px;">
+            <button type="submit" id="submit-btn" style="padding:10px 16px;background:#14532d;color:#fff;border-radius:8px;">
                 Run Dry Run
             </button>
         </form>
@@ -74,14 +87,23 @@
         (function () {
             const siteSelect = document.getElementById('site_id');
             const stageInput = document.getElementById('stage_domain');
+            const serverSelect = document.getElementById('server_id');
             const modeRadios = document.querySelectorAll('.mode-radio');
             const confirmWrap = document.getElementById('confirm-wrap');
             const liveWarning = document.getElementById('live-warning');
             const submitBtn = document.getElementById('submit-btn');
+            const oldServerId = @json(old('server_id'));
+
             function syncStageDomain() {
                 const opt = siteSelect.options[siteSelect.selectedIndex];
                 const sd = opt ? opt.getAttribute('data-stage-domain') : '';
                 stageInput.value = sd || '';
+                if (!oldServerId) {
+                    const sid = opt ? opt.getAttribute('data-staging-server-id') : '';
+                    if (sid && serverSelect.querySelector('option[value="'+sid+'"]')) {
+                        serverSelect.value = sid;
+                    }
+                }
             }
 
             function syncModeUi() {

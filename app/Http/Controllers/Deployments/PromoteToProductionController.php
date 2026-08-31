@@ -7,6 +7,7 @@ use App\Exceptions\DeploymentAlreadyRunningException;
 use App\Exceptions\DeploymentScriptException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PromoteToProductionRequest;
+use App\Models\Server;
 use App\Models\Site;
 use App\Services\Deployments\PromoteToProductionService;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -16,11 +17,14 @@ class PromoteToProductionController extends Controller
     public function create()
     {
         $sites = Site::query()
+            ->with(['targets.server'])
             ->where('status', Site::STATUS_STAGE)
             ->orderBy('name')
             ->get(['id', 'name', 'stage_domain']);
 
-        return view('deployments.promote.create', compact('sites'));
+        $servers = Server::query()->where('is_active', true)->orderBy('name')->get();
+
+        return view('deployments.promote.create', compact('sites', 'servers'));
     }
 
     public function store(PromoteToProductionRequest $request, PromoteToProductionService $service)
@@ -34,6 +38,7 @@ class PromoteToProductionController extends Controller
             mode: (string) $validated['mode'],
             requestedBy: (int) $request->user()->id,
             confirmPhrase: (string) ($validated['confirm_phrase'] ?? ''),
+            serverId: isset($validated['server_id']) ? (int) $validated['server_id'] : null,
         );
 
         try {

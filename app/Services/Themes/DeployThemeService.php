@@ -86,8 +86,15 @@ class DeployThemeService
             $site = Site::query()->findOrFail($run->site_id);
             $site = $this->migration->ensureMigrated($site, $log);
 
-            $resolved = $this->refs->resolve($gitRef);
-            $log('stdout', 'Resolved ref '.$gitRef.' → '.$resolved['sha'].' (legacy='.($resolved['is_legacy'] ? 'yes' : 'no').')');
+            $theme = $this->refs->resolveThemeForSite($site);
+            if (! $site->theme_id) {
+                $site->theme_id = $theme->id;
+                $site->theme_name = $site->theme_name ?: $theme->name;
+                $site->save();
+            }
+
+            $resolved = $this->refs->resolve($gitRef, $theme);
+            $log('stdout', 'Theme '.$theme->slug.' — resolved ref '.$gitRef.' → '.$resolved['sha'].' (legacy='.($resolved['is_legacy'] ? 'yes' : 'no').')');
 
             if ($resolved['is_legacy']) {
                 throw new InvalidArgumentException('DeployTheme is for theme major >= 2. Use legacy theme update for 1.x.');

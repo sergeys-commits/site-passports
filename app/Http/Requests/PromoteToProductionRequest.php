@@ -23,6 +23,7 @@ class PromoteToProductionRequest extends FormRequest
             ],
             'stage_domain' => ['required', 'string', 'max:190'],
             'prod_domain' => ['required', 'string', 'max:190', 'regex:/^[a-z0-9.\-]+$/'],
+            'server_id' => ['nullable', 'integer', 'exists:servers,id'],
             'mode' => ['required', Rule::in(['dry_run', 'live'])],
             'confirm_phrase' => ['nullable', 'string', 'max:190', 'required_if:mode,live'],
         ];

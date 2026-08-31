@@ -6,8 +6,10 @@ use App\Models\Server;
 use App\Models\Site;
 use App\Models\SiteEvent;
 use App\Models\SiteGroup;
+use App\Models\Theme;
 use App\Services\Deployments\ProvisionWordPressService;
 use App\Services\Sites\CreateSiteService;
+use App\Services\Themes\ThemeRefResolver;
 use Illuminate\Http\Request;
 
 class SiteController extends Controller
@@ -56,12 +58,23 @@ class SiteController extends Controller
         return redirect()->route('sites.index')->with('ok', 'Site created');
     }
 
-    public function createPipeline()
+    public function createPipeline(ThemeRefResolver $refs)
     {
         $this->authorizePipeline();
 
+        $themes = Theme::query()->where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get();
+        $themeTags = [];
+        foreach ($themes as $theme) {
+            $themeTags[$theme->id] = $refs->listSemverTags($theme, 30);
+        }
+
+        $defaultTheme = Theme::defaultTheme();
+
         return view('sites.create-pipeline', [
             'servers' => Server::query()->where('is_active', true)->orderBy('name')->get(),
+            'themes' => $themes,
+            'themeTags' => $themeTags,
+            'defaultThemeId' => $defaultTheme?->id,
             'groups' => SiteGroup::orderBy('name')->get(),
         ]);
     }
@@ -73,7 +86,10 @@ class SiteController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:190'],
             'scenario' => ['required', 'in:stage_then_prod,prod_basic_auth'],
-            'server_id' => ['required', 'exists:servers,id'],
+            'theme_id' => ['required', 'exists:themes,id'],
+            'server_id' => ['nullable', 'exists:servers,id'],
+            'staging_server_id' => ['nullable', 'exists:servers,id'],
+            'production_server_id' => ['nullable', 'exists:servers,id'],
             'staging_domain' => ['nullable', 'string', 'max:190'],
             'production_domain' => ['nullable', 'string', 'max:190'],
             'basic_auth' => ['sometimes', 'boolean'],
@@ -83,7 +99,30 @@ class SiteController extends Controller
             'provision_now' => ['sometimes', 'boolean'],
         ]);
 
+        if ($data['scenario'] === 'stage_then_prod') {
+            if (empty($data['staging_server_id'])) {
+                return back()->withErrors(['staging_server_id' => 'Staging server is required.'])->withInput();
+            }
+            $data['production_server_id'] = $data['production_server_id'] ?: $data['staging_server_id'];
+        } else {
+            if (empty($data['server_id']) && empty($data['production_server_id'])) {
+                return back()->withErrors(['server_id' => 'Server is required.'])->withInput();
+            }
+            $data['server_id'] = $data['server_id'] ?: $data['production_server_id'];
+        }
+
         $data['basic_auth'] = $request->boolean('basic_auth', true);
+
+        $provisionServer = $data['scenario'] === 'stage_then_prod'
+            ? Server::query()->find($data['staging_server_id'])
+            : Server::query()->find($data['server_id']);
+
+        if ($request->boolean('provision_now') && $provisionServer && $provisionServer->isSsh()) {
+            return back()->withErrors([
+                'provision_now' => 'Cannot queue WP provision on remote SSH yet. Create WP on the server first, then DeployTheme.',
+            ])->withInput();
+        }
+
         $site = $createSite->create($data, $request->user());
 
         if ($request->boolean('provision_now')) {
@@ -107,7 +146,7 @@ class SiteController extends Controller
         if (! auth()->user()->canAccessSite($site)) {
             abort(403);
         }
-        $site->load(['group', 'plugins', 'events', 'targets.server']);
+        $site->load(['group', 'plugins', 'events', 'targets.server', 'theme']);
 
         return view('sites.show', compact('site'));
     }

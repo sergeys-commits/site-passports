@@ -11,5 +11,6 @@ readonly class PromoteToProductionData
         public string $mode,
         public int $requestedBy,
         public string $confirmPhrase,
+        public ?int $serverId = null,
     ) {}
 }

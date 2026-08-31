@@ -21,6 +21,9 @@
                     <x-nav-link :href="route('servers.index')" :active="request()->routeIs('servers.*')">
                         {{ __('Servers') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('themes.index')" :active="request()->routeIs('themes.*')">
+                        {{ __('Themes') }}
+                    </x-nav-link>
                     <x-nav-link :href="route('deployments.index')" :active="request()->routeIs('deployments.*') || request()->routeIs('theme-update.*') || request()->routeIs('promote.*')">
                         {{ __('Deployments') }}
                     </x-nav-link>
@@ -84,6 +87,9 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('servers.index')" :active="request()->routeIs('servers.*')">
                 {{ __('Servers') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('themes.index')" :active="request()->routeIs('themes.*')">
+                {{ __('Themes') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('deployments.index')" :active="request()->routeIs('deployments.*') || request()->routeIs('theme-update.*') || request()->routeIs('promote.*')">
                 {{ __('Deployments') }}

@@ -27,7 +27,7 @@ class Site extends Model
     protected $fillable = [
         'name', 'brand_key', 'domain', 'stage_domain', 'group_id', 'admin_url', 'stage_admin_url', 'wp_admin_password',
         'theme_name', 'theme_version', 'theme_changed_at', 'php_version', 'wp_version',
-        'site_salt', 'profile_id', 'profile_revision', 'public_token', 'theme_slug',
+        'site_salt', 'profile_id', 'profile_revision', 'public_token', 'theme_slug', 'theme_id',
         'theme_git_ref', 'last_build_meta', 'lifecycle', 'scenario', 'profile_pipeline_enabled',
         'status', 'launch_date', 'transfer_date', 'notes',
     ];
@@ -44,6 +44,22 @@ class Site extends Model
     protected $hidden = [
         'site_salt',
     ];
+
+    public function theme(): BelongsTo
+    {
+        return $this->belongsTo(Theme::class);
+    }
+
+    public function resolveTheme(): ?Theme
+    {
+        if ($this->theme_id) {
+            $this->loadMissing('theme');
+
+            return $this->theme;
+        }
+
+        return Theme::defaultTheme();
+    }
 
     public function group(): BelongsTo
     {
